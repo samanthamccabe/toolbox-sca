@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Queue;
 import java.util.Set;
@@ -53,32 +54,37 @@ public class StandardScript implements SoundChangeScript {
 	private static final transient Logger LOGGER = LoggerFactory.getLogger(StandardScript.class);
 
 	private static final String COMMENT_STRING = "%";
-	private static final String FILEHANDLE     = "([A-Z0-9_]+)";
+	private static final String FILEHANDLE     = "(\\w+)";
 	private static final String FILEPATH       = "[\"\']([^\"\']+)[\"\']";
 
-	private static final Pattern MODE    = Pattern.compile("(MODE|mode)");
-	private static final Pattern EXECUTE = Pattern.compile("(EXECUTE|execute)");
-	private static final Pattern IMPORT  = Pattern.compile("(IMPORT|import)");
-	private static final Pattern OPEN    = Pattern.compile("(OPEN|open)");
-	private static final Pattern WRITE   = Pattern.compile("(WRITE|write)");
-	private static final Pattern CLOSE   = Pattern.compile("(CLOSE|close)");
-	private static final Pattern BREAK   = Pattern.compile("(BREAK|break)");
-	private static final Pattern LOAD    = Pattern.compile("(LOAD|load)");
-	private static final Pattern RESERVE = Pattern.compile("(RESERVE|reserve)");
+	public static final int INS = Pattern.CASE_INSENSITIVE;
+
+	private static final String MODE    = "MODE";
+	private static final String EXECUTE = "EXECUTE";
+	private static final String IMPORT  = "IMPORT";
+	private static final String OPEN    = "OPEN";
+	private static final String WRITE   = "WRITE";
+	private static final String CLOSE   = "CLOSE";
+	private static final String BREAK   = "BREAK";
+	private static final String LOAD    = "LOAD";
+	private static final String RESERVE = "RESERVE";
 
 	private static final Pattern COMMENT_PATTERN    = Pattern.compile(COMMENT_STRING + ".*");
 	private static final Pattern NEWLINE_PATTERN    = Pattern.compile("\\s*(\\r?\\n|\\r)\\s*");
-	private static final Pattern RESERVE_PATTERN    = Pattern.compile(RESERVE.pattern() + ":? *");
+	private static final Pattern RESERVE_PATTERN    = Pattern.compile(RESERVE + ":? *");
 	private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
-	private static final Pattern CLOSE_PATTERN   = Pattern.compile(CLOSE.pattern() + "\\s+" + FILEHANDLE + "\\s+((as|AS)\\s)?" + FILEPATH);
-	private static final Pattern WRITE_PATTERN   = Pattern.compile(WRITE.pattern() + "\\s+" + FILEHANDLE + "\\s+((as|AS)\\s)?" + FILEPATH);
-	private static final Pattern OPEN_PATTERN    = Pattern.compile(OPEN.pattern() + "\\s+" + FILEPATH + "\\s+((as|AS)\\s)?" + FILEHANDLE);
-	private static final Pattern MODE_PATTERN    = Pattern.compile(MODE.pattern() + ":? *");
-	private static final Pattern EXECUTE_PATTERN = Pattern.compile(EXECUTE.pattern() + "\\s+");
-	private static final Pattern IMPORT_PATTERN  = Pattern.compile(IMPORT.pattern() + "\\s+");
-	private static final Pattern LOAD_PATTERN    = Pattern.compile(LOAD.pattern() + "\\s+");
+	private static final Pattern CLOSE_PATTERN   = Pattern.compile(CLOSE + "\\s+" + FILEHANDLE + "\\s+(as\\s)?" + FILEPATH, INS);
+	private static final Pattern WRITE_PATTERN   = Pattern.compile(WRITE + "\\s+" + FILEHANDLE + "\\s+(as\\s)?" + FILEPATH, INS);
+	private static final Pattern OPEN_PATTERN    = Pattern.compile(OPEN + "\\s+" + FILEPATH + "\\s+(as\\s)?" + FILEHANDLE, INS);
+	private static final Pattern MODE_PATTERN    = Pattern.compile(MODE + ":? *", INS);
+	private static final Pattern EXECUTE_PATTERN = Pattern.compile(EXECUTE + "\\s+", INS);
+	private static final Pattern IMPORT_PATTERN  = Pattern.compile(IMPORT + "\\s+", INS);
+	private static final Pattern LOAD_PATTERN    = Pattern.compile(LOAD + "\\s+", INS);
 	private static final Pattern QUOTES_PATTERN  = Pattern.compile("\"|\'");
+
+	private static final Pattern VAR_PATTERN = Pattern.compile("[^=]+=", INS);
+	private static final Pattern RULE_PATTERN = Pattern.compile("(\\[[^\\]]+\\]|[^>]\\s*)*>", INS);
 
 	private final String         scriptId;
 	private final FileHandler    fileHandler;
@@ -99,7 +105,8 @@ public class StandardScript implements SoundChangeScript {
 
 		boolean fail = parse(id, lines);
 		if (fail) {
-			throw new ParseException("There were problems compiling the script " + id + "; please see logs for details");
+			throw new ParseException("There were problems compiling the script "
+			                         + id + "; please see logs for details");
 		}
 	}
 
@@ -153,57 +160,128 @@ public class StandardScript implements SoundChangeScript {
 		int lineNumber = 1;
 		boolean fail = false;
 
+		StringBuilder buffer = new StringBuilder();
+		Type commandType = null;
+		String currentLine;
 		for (String string : strings) {
-			if (!string.startsWith(COMMENT_STRING) && !string.isEmpty()) {
-				String command = COMMENT_PATTERN.matcher(string).replaceAll("").trim();
-				try {
-					if (LOAD.matcher(command).lookingAt()) {
-						featureModel = loadModel(command, fileHandler, formatterMode);
-					} else if (EXECUTE.matcher(command).lookingAt()) {
-						executeScript(command);
-					} else if (IMPORT.matcher(command).lookingAt()) {
-						importScript(command);
-					} else if (OPEN.matcher(command).lookingAt()) {
-						SequenceFactory factory = new SequenceFactory(
-							featureModel,
-							new VariableStore(variables),  // Be sure to defensively copy
-							new HashSet<String>(reserved), // Be sure to defensively copy
-							formatterMode
-						);
-						openLexicon(command, factory);
-					} else if (WRITE.matcher(command).lookingAt()) {
-						writeLexicon(command, formatterMode);
-					} else if (CLOSE.matcher(command).lookingAt()) {
-						closeLexicon(command, formatterMode);
-					} else if (command.contains("=")) {
-						variables.add(command);
-					} else if (command.contains(">")) {
-						// This is probably the correct scope; if other commands change the variables or segmentation mode,
-						// we could get unexpected behavior if this is initialized outside the loop
-						SequenceFactory factory = new SequenceFactory(
-							featureModel,
-							new VariableStore(variables),
-							new HashSet<String>(reserved),
-							formatterMode
-						);
-						commands.add(new Rule(command, lexicons, factory));
-					} else if (MODE.matcher(command).lookingAt()) {
-						formatterMode = setNormalizer(command);
-					} else if (RESERVE.matcher(command).lookingAt()) {
-						String reserve = RESERVE_PATTERN.matcher(command).replaceAll("");
-						Collections.addAll(reserved, WHITESPACE_PATTERN.split(reserve));
-					} else if (BREAK.matcher(command).lookingAt()) {
-						break; // Stop parsing commands
-					} else {
-						LOGGER.warn("Unrecognized Command: {}", string);
-					}
-				} catch (Exception e) {
-					fail = true;
-					LOGGER.error("Script: {} Line: {} --- Compilation Error", id, lineNumber, e);
+			currentLine = COMMENT_PATTERN.matcher(string).replaceAll("").trim();
+			// TODO: this section contains a lot of repeated code
+			if (currentLine.isEmpty()) {
+				// end previous command
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder();
+				commandType = null;
+			} else if (currentLine.startsWith(LOAD)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.LOAD;
+			} else if (currentLine.startsWith(EXECUTE)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.EXECUTE;
+			} else if (currentLine.startsWith(IMPORT)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.IMPORT;
+			} else if (currentLine.startsWith(OPEN)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.OPEN;
+			} else if (currentLine.startsWith(WRITE)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.WRITE;
+			} else if (currentLine.startsWith(CLOSE)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.CLOSE;
+			} else if (currentLine.startsWith(MODE)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.MODE;
+			} else if (currentLine.startsWith(RESERVE)) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.RESERVE;
+			} else if (currentLine.startsWith(BREAK)) {
+				buildCommand(commandType, buffer.toString());
+				break; // terminate processing
+			} else if (VAR_PATTERN.matcher(currentLine).find()) {
+				buildCommand(commandType, buffer.toString());
+				buffer = new StringBuilder(currentLine);
+				commandType = Type.VARIABLE;
+			} else if (RULE_PATTERN.matcher(currentLine).find()) {
+				if (commandType == null) {
+					commandType = Type.RULE;
+				} else {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.RULE;
 				}
+			} else {
+				buffer.append(currentLine);
 			}
+			// Always add a standard newline
+			buffer.append('\n');
 		}
+
+		// Compile remaining contents of buffer
+		buildCommand(commandType, buffer.toString());
+
 		return fail;
+	}
+
+	private void buildCommand(Type commandType, String string) {
+
+		string = string.trim();
+
+		if (string.isEmpty() || commandType == null) {
+			return;
+		}
+
+		SequenceFactory factory = new SequenceFactory(
+				featureModel,
+				new VariableStore(variables),
+				new HashSet<String>(reserved),
+				formatterMode
+		);
+
+		switch (commandType) {
+			case MODE:
+				formatterMode = setNormalizer(string);
+				break;
+			case EXECUTE:
+				executeScript(string);
+				break;
+			case IMPORT:
+				importScript(string);
+				break;
+			case OPEN:
+				openLexicon(string, factory);
+				break;
+			case WRITE:
+				writeLexicon(string, formatterMode);
+				break;
+			case CLOSE:
+				closeLexicon(string, formatterMode);
+				break;
+			case LOAD:
+				featureModel = loadModel(string, fileHandler, formatterMode);
+				break;
+			case RESERVE:
+				String reserve = RESERVE_PATTERN.matcher(string).replaceAll("");
+				Collections.addAll(reserved, WHITESPACE_PATTERN.split(reserve));
+				break;
+			case VARIABLE:
+				variables.add(string);
+				break;
+			case RULE:
+				commands.add(new Rule(string, lexicons, factory));
+				break;
+			default:
+				//
+				LOGGER.debug("");
+		}
 	}
 
 	private static FeatureModel loadModel(CharSequence command, FileHandler handler, FormatterMode mode) {
@@ -215,16 +293,16 @@ public class StandardScript implements SoundChangeScript {
 	}
 
 	/**
-	 * OPEN "some_lexicon.txt" (as) FILEHANDLE to load the contents of that file into a lexicon
-	 * stored against the file-handle;
+	 * OPEN "some_lexicon.txt" (as) FILEHANDLE to load the contents of that file
+	 * into a lexicon stored against the file-handle;
 	 *
 	 * @param command the whole command staring from OPEN, specifying the path and file-handle
 	 */
 	private void openLexicon(String command, SequenceFactory factory) {
 		Matcher matcher = OPEN_PATTERN.matcher(command);
 		if (matcher.lookingAt()) {
-			String path   = matcher.group(2);
-			String handle = matcher.group(5);
+			String path   = matcher.group(1);
+			String handle = matcher.group(3);
 			commands.add(new LexiconOpenCommand(lexicons, path, handle, fileHandler, factory));
 		} else {
 			throw new ParseException("Command seems to be ill-formatted: " + command);
@@ -232,7 +310,8 @@ public class StandardScript implements SoundChangeScript {
 	}
 
 	/**
-	 * CLOSE FILEHANDLE (as) "some_output2.txt" to close the file-handle and save the lexicon to the specified file.
+	 * CLOSE FILEHANDLE (as) "some_output2.txt" to close the file-handle and
+	 * save the lexicon to the specified file.
 	 *
 	 * @param command the whole command starting from CLOSE, specifying the file-handle and path
 	 * @throws  ParseException
@@ -240,8 +319,8 @@ public class StandardScript implements SoundChangeScript {
 	private void closeLexicon(String command, FormatterMode mode) {
 		Matcher matcher = CLOSE_PATTERN.matcher(command);
 		if (matcher.lookingAt()) {
-			String handle = matcher.group(2);
-			String path   = matcher.group(5);
+			String handle = matcher.group(1);
+			String path   = matcher.group(3);
 			commands.add(new LexiconCloseCommand(lexicons, path, handle, fileHandler, mode));
 		} else {
 			throw new ParseException("Command seems to be ill-formatted: " + command);
@@ -249,8 +328,8 @@ public class StandardScript implements SoundChangeScript {
 	}
 
 	/**
-	 * WRITE FILEHANDLE (as) "some_output1.txt" to save the current state of the lexicon to the specified file,
-	 * but leave the handle open
+	 * WRITE FILEHANDLE (as) "some_output1.txt" to save the current state of the
+	 * lexicon to the specified file,but leave the handle open
 	 *
 	 * @param command the whole command starting from WRITE, specifying the file-handle and path
 	 * @throws ParseException
@@ -258,8 +337,8 @@ public class StandardScript implements SoundChangeScript {
 	private void writeLexicon(String command, FormatterMode mode) {
 		Matcher matcher = WRITE_PATTERN.matcher(command);
 		if (matcher.lookingAt()) {
-			String handle = matcher.group(2);
-			String path   = matcher.group(5);
+			String handle = matcher.group(1);
+			String path   = matcher.group(3);
 			commands.add(new LexiconWriteCommand(lexicons, path, handle, fileHandler, mode));
 		} else {
 			throw new ParseException("Command seems to be ill-formatted: " + command);
@@ -267,8 +346,9 @@ public class StandardScript implements SoundChangeScript {
 	}
 
 	/**
-	 * IMPORT other rule files, which basically inserts those commands into your current rule file;
-	 * Unlike other commands, this runs immediately and inserts the new commands into the current sound change applier
+	 * IMPORT other rule files, which basically inserts those commands into your
+	 * current rule file; Unlike other commands, this runs immediately and
+	 * inserts the new commands into the current sound change applier
 	 *
 	 * @param command the whole command starting with 'IMPORT'
 	 */
@@ -279,16 +359,11 @@ public class StandardScript implements SoundChangeScript {
 		Collection<String> lines = new ArrayList<String>();
 		Collections.addAll(lines, NEWLINE_PATTERN.split(data));
 		parse(path, lines);
-//		StandardScript script = new StandardScript(path, data, fileHandler);
-//		commands.addAll(script.getCommands());
-//		variables.addAll(script.variables);
-//		reserved.addAll(script.reserved);
-//		if (script.formatterMode != null) { formatterMode = script.formatterMode; }
-//		if (script.featureModel  != null) { featureModel  = script.featureModel;  }
 	}
 
 	/**
-	 * EXECUTE other rule files, which just does what that rule file does in a separate process;
+	 * EXECUTE other rule files, which just does what that rule file does in a
+	 * separate process;
 	 *
 	 * @param command the whole command starting with 'EXECUTE'
 	 */
@@ -309,6 +384,20 @@ public class StandardScript implements SoundChangeScript {
 
 	@Override
 	public String toString() {
-		return "StandardScript{"+scriptId+'}';
+		return "StandardScript{" + scriptId + '}';
 	}
+
+	private enum Type {
+		MODE,
+		EXECUTE,
+		IMPORT,
+		OPEN,
+		WRITE,
+		CLOSE,
+//		BREAK,
+		LOAD,
+		RESERVE,
+		VARIABLE,
+		RULE
+		}
 }

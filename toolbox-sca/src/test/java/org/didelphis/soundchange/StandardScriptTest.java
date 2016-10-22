@@ -62,6 +62,77 @@ public class StandardScriptTest {
 	}
 
 	@Test
+	public void testRules01() {
+		String lexicon =
+				"apat\n"+
+				"takan\n"+
+				"kepak\n"+
+				"pik\n"+
+				"ket";
+
+		String script =
+				"OPEN 'lexicon' as LEXICON\n" +
+				"C = p t k\n" +
+				"G = b d g\n" +
+				"V = a e i o u\n" +
+				"C > G / V_V\n" +
+				"CLOSE LEXICON as 'newlex'";
+
+		Map<String, String> fileSystem = new HashMap<String, String>();
+		fileSystem.put("lexicon", lexicon);
+
+		MockFileHandler handler = new MockFileHandler(fileSystem);
+		SoundChangeScript standardScript = new StandardScript(script, handler);
+		standardScript.process();
+
+		String received = fileSystem.get("newlex");
+		String expected =
+				"abat\n" +
+				"tagan\n" +
+				"kebak\n" +
+				"pik\n" +
+				"ket";
+
+		assertEquals(expected, received);
+	}
+
+	@Test
+	public void testRules02() {
+		String lexicon =
+				"apat\n"+
+				"takan\n"+
+				"kepak\n"+
+				"pik\n"+
+				"ket";
+
+		String script =
+				"OPEN 'lexicon' as LEXICON\n" +
+				"C = p t k\n" +
+				"G = b d g\n" +
+				"V = a e i o u\n" +
+				"C > G / V_V\n" +
+				"k t > x th / #_\n" +
+				"CLOSE LEXICON as 'newlex'";
+
+		Map<String, String> fileSystem = new HashMap<String, String>();
+		fileSystem.put("lexicon", lexicon);
+
+		MockFileHandler handler = new MockFileHandler(fileSystem);
+		SoundChangeScript standardScript = new StandardScript(script, handler);
+		standardScript.process();
+
+		String received = fileSystem.get("newlex");
+		String expected =
+				"abat\n" +
+				"thagan\n" +
+				"xebak\n" +
+				"pik\n" +
+				"xet";
+
+		assertEquals(expected, received);
+	}
+
+	@Test
 	public void testImportVariables() throws Exception {
 		String script1 = "" +
 			"C = p t k\n" +
@@ -146,7 +217,10 @@ public class StandardScriptTest {
 		fileSystem.put("script1", script1);
 		fileSystem.put("lexicon", lexicon);
 
-		new StandardScript(script2, new MockFileHandler(fileSystem)).process();
+		FileHandler handler = new MockFileHandler(fileSystem);
+		SoundChangeScript script = new StandardScript(script2, handler);
+
+		script.process();
 
 		String received = fileSystem.get("newlex");
 		String expected = "" +
@@ -208,7 +282,7 @@ public class StandardScriptTest {
 		fileSystem.put("testRuleLarge01.txt", rules);
 
 		String executeRule = "EXECUTE 'testRuleLarge01.txt'";
-		StandardScript script = new StandardScript("testExecute", executeRule, fileHandler);
+		SoundChangeScript script = new StandardScript("testExecute", executeRule, fileHandler);
 
 		script.process();
 
