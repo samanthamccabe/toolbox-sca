@@ -6,16 +6,19 @@ y w > i u
 C P T K V R > k p t k a r
 ā́  ḗ  ī́  ṓ  ū́  > â ê î ô û
 á  é  í  ó  ú  > á é í ó ú
+
 [E] = e ē é ê
 [A] = a ā á â
 [O] = o ō ó ô
 [I] = i ī í î
 [U] = u ū ú û
+
 X = x ʔ
 N = m n
 R = r l
 A = N R
 W = y w
+
 @Q  = kʷʰ kʷ gʷ
 @K  = kʰ  k  g
 @KY = cʰ  c  ɟ
@@ -30,11 +33,13 @@ C   = [OBSTRUENT] A W
 V   = @VS @VL 
 @IU = i u í ú
 ʜ > ʔ
+
 % Szemerenyi's law
 @VS > @VL / _m-m#
 a e o á é ó > ā ē ō â ê ô / _{s n?t r l m}-s#
 -m > 0 / m_#
 -s > 0 / {s t r l m}_#
+
 % For correct handling of negation prefix
 n- > n̩ / #_
 ā́  > â
@@ -42,94 +47,110 @@ ee eo oe ea ae > ē ō ō ā ā
 ée eé éo eó óe oé > ê ê ô ô ô ô
 éa eá áe aé > â â â â
 - > 0
+
 %%%% PHASE 01 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 h₁ h₂ h₃ h₄ > ʔ x ɣ ʕ
 hₓ hₐ > ʔ ʕ
 b  d  ǵ  g  gʷ  > bʰ dʰ ǵʰ gʰ gʷʰ / _{x ɣ}
 p  t  ḱ  k  kʷ  > pʰ tʰ ḱʰ kʰ kʷʰ / _{x ɣ}
 bʰ dʰ ǵʰ gʰ gʷʰ > pʰ tʰ ḱʰ kʰ kʷʰ
 ḱʰ ḱ ǵ > cʰ c ɟ
-[E] > [A] / {x ʕ}_
-[E] > [A] / _{x ʕ}
-[E] > [O] / ɣ_
-[E] > [O] / _ɣ
+[E] > [A] / {x ʕ}_ or _{x ʕ}
+[E] > [O] / ɣ_ or _ɣ 
 ɣ ʕ > x ʔ
-X > 0 / _X
-X > 0 / _{i y í}
+X > 0 / _{X i y í}
 iX uX > ī ū
 au eu ou am em om > ā ē ō ā ē ō / _m#
 áu éu óu ám ém óm > â ê ô â ê ô / _m#
+
 %%%% PHASE 02 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 u i > w y / X?_V
 mr wr ml wl > br br bl bl / #_V
 mX nX > mə nə / #_C
 rX lX nX mX > r̩X l̩X n̩X m̩X / [OBSTRUENT]_
-n m > n̩ m̩ / C_#
+
+n m > n̩ m̩ / [OBSTRUENT]_{C #} or C_# 
 r l > r̩ l̩ / [OBSTRUENT]_{C #}
-m n > m̩ n̩ / [OBSTRUENT]_{C #}
 r̩ l̩ > r l / C_N{C #}
-n̩X m̩X > ə̄    / _C
+
+n̩X m̩X > ə̄     / _C
 n̩X m̩X > ə̄n ə̄m / _{V #}
+
 n̩ m̩ > ə     / _C
 n̩ m̩ > ən əm / _{V #}
-r̩X l̩X > ə̄r ə̄l   / _{C #}
+
+r̩X l̩X > ə̄r ə̄l / _{C #}
 r̩X l̩X > ər əl / _V
 r̩ l̩ > ər əl
 ə̄ > ū / {@K @Q}_
 ə > u / {@K @Q}_
+
 % LABIOVELAR SPLIT
 @Q > @K / _{[O] [U] w [OBSTRUENT]}
-@Q > @K /  {[O] [U] w [OBSTRUENT]}_
+		or {[O] [U] w [OBSTRUENT]}_
+
 @Q > @P
+
 %%%% PHASE 03 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @VS > @VL / _X{C #}
-@VS > @VL / _X{[I] [U] y w}V
-@VS > @VL / _XV
-X  > 0   / @VL_{C # u}
-X  > 0   / [OBSTRUENT]_V
-X  > 0   / VA_V
+		or _X{[I] [U] y w}V 
+		or _XV
+
+X > 0 / @VL_{C # u} 
+		or [OBSTRUENT]_V
+		or VA_V
+
 xa xə > 0 / @VL_
 xu xo > u / @VL_
 
 ʔ > y / [E]_{[A] [O]}
 ʔ > w / [O]_{[A] [E]}
-x > w / [A]_[O]
-x > w / [O]_[A]
+
+x > w / [A]_[O] or 
+		[O]_[A]
 
 % Desyllabification of Semivowels
 i u > y w / _VC
 iuiX uiuX > iwī uyū / C_
 i u > y w / #_{@IUX @AE}
-i u > y w / _@AE
-i u > y w / @AE_@VL
-i u > y w / {X C}_V
+		or _@AE
+		or @AE_@VL
+		or {X C}_V
+
 y w > i u / _{C X #}
 
-@VSī @VSū > @VLi @VLu / _{C #}
+@VSī @VSū > @VLi @VLu / _{C # y w}
 @VSī @VSū > @VLy @VLw / _V
-@VSī @VSū > @VLi @VLu / _{y w}
 
 X > ə / {# [OBSTRUENT]}_C
-X > ə / C_# OR A_A#
-X > 0 / _{C #} OR C_
-ʔ  > 0 / #_
+		or C_#
+		or A_A#
+
+X > 0 / _{C #}
+		or C_
+
+ʔ > 0 / #_
 
 iʔə uʔə > ī ū
-Xə > 0  / @VL_
+Xə > 0 / @VL_
+
 % GRASSMANN'S LAW
 @CH = pʰ tʰ cʰ kʰ
 @J  = b  d  ɟ  g
 @CH > @J / _R?VV?C*@CH
+
 % Consonant Clusters
 @Ks > ks
 s > 0 / @KY_
-tk tʰkʰ ct ɟt ck  > ks ks ɕt ɕt ɕk
+tk tʰkʰ ct ɟt ck > ks ks ɕt ɕt ɕk
 tc dc tcʰ tʰcʰ > cc
-s > 0 / _sss?
-s > 0 / _s+C
+s > 0 / _sss? or _s+C 
 oʔ@AE @AEʔo > ō
 ʔ > 0  / {[E] [A] [O]}_{[I] [U]}
 eʔe aʔa eʔa aʔe > ē ā ā ē

@@ -70,8 +70,7 @@ public class RuleTest {
 	public void testUnbalancedTransform2() {
 		new Rule("a b c > x y", FACTORY);
 	}
-
-
+	
 	@Test
 	public void testBrackets01() throws Exception {
 

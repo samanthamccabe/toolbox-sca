@@ -48,15 +48,13 @@ import java.util.regex.Pattern;
 public class Rule implements Runnable {
 
 	private static final transient Logger LOGGER = LoggerFactory.getLogger(Rule.class);
-
-	private static final Pattern NOT_KEYWORD        = Pattern.compile("(NOT|not)");
-	private static final Pattern OR_KEYWORD         = Pattern.compile("(OR|or)");
-
-	private static final Pattern BACKREFERENCE      = Pattern.compile("\\$([^\\$]*)(\\d+)");
-	private static final Pattern NOT_PATTERN        = Pattern.compile("\\s+" + NOT_KEYWORD.pattern() + "\\s+");
-	private static final Pattern OR_PATTERN         = Pattern.compile("\\s+" + OR_KEYWORD.pattern() + "\\s+");
-	private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
-	private static final Pattern TRANSFORM_PATTERN  = Pattern.compile("\\s*>\\s*");
+	
+	private static final Pattern BACKREFERENCE = Pattern.compile("\\$([^\\$]*)(\\d+)");
+	private static final Pattern NOT_PATTERN   = Pattern.compile("\\s*not\\s*", Pattern.CASE_INSENSITIVE);
+	private static final Pattern OR_PATTERN    = Pattern.compile("\\s*or\\s*", Pattern.CASE_INSENSITIVE);
+	
+	private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+	private static final Pattern TRANSFORM = Pattern.compile("\\s*>\\s*");
 
 	private final String          ruleText;
 	private final List<Condition> conditions;
@@ -160,10 +158,9 @@ public class Rule implements Runnable {
 				Sequence target = entry.getValue();
 
 				if (index < output.size()) {
-
 					// These map from reference index ($) to:
 					Map<Integer, Integer>  indexMap     = new HashMap<Integer, Integer>(); // index of the matching variable element
-					Map<Integer, String>   variableMap  = new HashMap<Integer, String>();  // the matched variable / segment string
+					Map<Integer, String>   variableMap  = new HashMap<Integer, String>(); // the matched variable / segment string
 					Map<Integer, Sequence> sequenceMap  = new HashMap<Integer, Sequence>(); // the actual input that was matched
 
 					// Step through the source pattern
@@ -259,29 +256,33 @@ public class Rule implements Runnable {
 
 				String conditionString = array[1].trim();
 
-				Matcher notMatcher = NOT_KEYWORD.matcher(conditionString);
+				Matcher notMatcher = NOT_PATTERN.matcher(conditionString);
 				if (notMatcher.lookingAt()) {
 					// if there is no regular condition
 					// Takes the first one off, and splits on the rest
-					String[] split = NOT_KEYWORD.split(notMatcher.replaceFirst(""));
+					String first = notMatcher.replaceFirst("");
+					String[] split = NOT_PATTERN.split(first);
 
 					for (String clause : split) {
+						if (OR_PATTERN.matcher(clause).find()) {
+							throw new RuleFormatException("OR is not allowed " +
+									"following a NOT");
+						}
 						exceptions.add(new Condition(clause.trim(), factory));
 					}
 
 				} else if (notMatcher.find()) {
-					// Does this code ever get called?
 					String[] split = NOT_PATTERN.split(conditionString, 2);
-						String conditionClauses = split[0];
-						String exceptionClauses = split[1];
+					String conditionClauses = split[0];
+					String exceptionClauses = split[1];
 
-						for (String con : OR_PATTERN.split(conditionClauses)) {
-							conditions.add(new Condition(con, factory));
-						}
+					for (String con : OR_PATTERN.split(conditionClauses)) {
+						conditions.add(new Condition(con, factory));
+					}
 
-						for (String exc : NOT_PATTERN.split(exceptionClauses)) {
-							exceptions.add(new Condition(exc, factory));
-						}
+					for (String exc : NOT_PATTERN.split(exceptionClauses)) {
+						exceptions.add(new Condition(exc, factory));
+					}
 				} else {
 					for (String s : OR_PATTERN.split(conditionString)) {
 						conditions.add(new Condition(s, factory));
@@ -327,13 +328,16 @@ public class Rule implements Runnable {
 		for (int i = 0; i < target.size(); i++) {
 			Segment segment = target.get(i);
 
-			Matcher matcher = BACKREFERENCE.matcher(segment.getSymbol());
+			String symbol = segment.getSymbol();
+			Matcher matcher = BACKREFERENCE.matcher(symbol);
 			if (matcher.matches()) {
-				Sequence sequence = getReferencedReplacement(target, variableMap, indexMap, sequenceMap, matcher);
+				Sequence sequence = getReferencedReplacement(target,
+						variableMap, indexMap, sequenceMap, matcher);
 				replacement.add(sequence);
-			} else if (factory.hasVariable(segment.getSymbol())) {
-				// Allows C > G transformations, where C and G have the same number of elements
-				List<Sequence> elements = factory.getVariableValues(segment.getSymbol());
+			} else if (factory.hasVariable(symbol)) {
+				// Allows C > G transformations, where C and G have the same
+				// number of elements
+				List<Sequence> elements = factory.getVariableValues(symbol);
 				Integer anIndex = indexMap.get(variableIndex);
 				Sequence sequence = elements.get(anIndex);
 				replacement.add(sequence);
@@ -349,7 +353,7 @@ public class Rule implements Runnable {
 						features,
 						model.getSpecification());
 				replacement.add(newSegment);
-			} else if (!segment.getSymbol().equals("0")) {
+			} else if (!symbol.equals("0")) {
 				// Normal segment and not 0
 				replacement.add(segment);
 			}
@@ -381,7 +385,8 @@ public class Rule implements Runnable {
 				Segment captured = sequenceMap.get(reference).get(0);
 				sequence.add(captured);
 			} else {
-				throw new RuntimeException("The use of feature substitution in this manner is not supported! " + target);
+				throw new RuntimeException("The use of feature substitution " +
+						"in this manner is not supported! " + target);
 			}
 		} else {
 			String variable;
@@ -395,7 +400,7 @@ public class Rule implements Runnable {
 		return sequence;
 	}
 
-	private boolean conditionsMatch(Sequence word, int startIndex, int endIndex) {
+	private boolean conditionsMatch(Sequence word, int start, int end) {
 		Iterator<Condition> cI = conditions.iterator();
 		Iterator<Condition> eI = exceptions.iterator();
 
@@ -405,7 +410,7 @@ public class Rule implements Runnable {
 		if (cI.hasNext()) {
 			while (cI.hasNext() && !conditionMatch) {
 				Condition condition = cI.next();
-				conditionMatch = condition.isMatch(word, startIndex, endIndex);
+				conditionMatch = condition.isMatch(word, start, end);
 			}
 		} else {
 			conditionMatch = true;
@@ -414,7 +419,7 @@ public class Rule implements Runnable {
 		if (eI.hasNext()) {
 			while (eI.hasNext() && !exceptionMatch) {
 				Condition exception = eI.next();
-				exceptionMatch = exception.isMatch(word, startIndex, endIndex);
+				exceptionMatch = exception.isMatch(word, start, end);
 			}
 		}
 		return conditionMatch && !exceptionMatch;
@@ -422,15 +427,18 @@ public class Rule implements Runnable {
 
 	private void parseTransform(String transformation) {
 		if (transformation.contains(">")) {
-			String[] array = TRANSFORM_PATTERN.split(transformation);
+			String[] array = TRANSFORM.split(transformation);
 
 			if (array.length <= 1) {
-				throw new RuleFormatException("Malformed transformation! " + transformation);
+				throw new RuleFormatException("Malformed transformation! " +
+						transformation);
 			} else if (transformation.contains("$[")) {
-				throw new RuleFormatException("Malformed transformation! use of indexing with $[] is not permitted! " + transformation);
+				throw new RuleFormatException("Malformed transformation! use " +
+						"of indexing with $[] is not permitted! " +
+						transformation);
 			} else {
-				String sourceString = WHITESPACE_PATTERN.matcher(array[0]).replaceAll(" ");
-				String targetString = WHITESPACE_PATTERN.matcher(array[1]).replaceAll(" ");
+				String sourceString = WHITESPACE.matcher(array[0]).replaceAll(" ");
+				String targetString = WHITESPACE.matcher(array[1]).replaceAll(" ");
 
 				// Split strings, but not within brackets []
 				List<String> sourceList = parseToList(sourceString);
@@ -497,7 +505,8 @@ public class Rule implements Runnable {
 
 	private static void balanceTransform(List<String> source, List<String> target) {
 		if (target.size() > source.size()) {
-			throw new RuleFormatException("Target size cannot be greater than source size! " + source + " < " + target);
+			throw new RuleFormatException("Target size cannot be greater than" +
+					" source size! " + source + " < " + target);
 		} else if (target.size() < source.size()) {
 			if (target.size() == 1) {
 				String first = target.get(0);
@@ -505,7 +514,8 @@ public class Rule implements Runnable {
 					target.add(first);
 				}
 			} else {
-				throw new RuleFormatException("Target and source sizes may only be uneven if target size is exactly 1! " +
+				throw new RuleFormatException("Target and source sizes may" +
+						" only be uneven if target size is exactly 1! " +
 						source + " > " + target);
 			}
 		}

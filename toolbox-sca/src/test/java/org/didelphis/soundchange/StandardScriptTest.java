@@ -52,10 +52,8 @@ public class StandardScriptTest {
 	private static final transient Logger LOGGER = LoggerFactory.getLogger(StandardScriptTest.class);
 
 	private static final ClassPathFileHandler CLASSPATH_HANDLER   = ClassPathFileHandler.getDefaultInstance();
-	private static final SequenceFactory      FACTORY_NONE        = new SequenceFactory(FormatterMode.NONE);
-	private static final SequenceFactory      FACTORY_INTELLIGENT = new SequenceFactory(FormatterMode.INTELLIGENT);
-
-
+	private static final SequenceFactory FACTORY_NONE = new SequenceFactory(FormatterMode.NONE);
+	
 	@Test(expected = ParseException.class)
 	public void testBadMode() {
 		new StandardScript("MODE:XXX", NullFileHandler.INSTANCE);
@@ -261,46 +259,6 @@ public class StandardScriptTest {
 			"abaxa\n" +
 			"fagu\n" +
 			"aθugu";
-		assertEquals(expected, received);
-	}
-
-	@Test
-	public void testExecute() throws Exception {
-		Map<String, String> fileSystem = new HashMap<String, String>();
-		FileHandler fileHandler = new MockFileHandler(fileSystem);
-
-		String rules = getStringFromClassPath("testRuleLarge01.txt");
-		String words = getStringFromClassPath("testRuleLarge01.lex");
-		String outpt = getStringFromClassPath("testRuleLargeOut01.lex");
-
-		// Append output clause
-		rules = rules + "\n" +
-			"MODE COMPOSITION\n" +
-			"CLOSE LEXICON AS \'output.lex\'";
-
-		fileSystem.put("testRuleLarge01.lex", words);
-		fileSystem.put("testRuleLarge01.txt", rules);
-
-		String executeRule = "EXECUTE 'testRuleLarge01.txt'";
-		SoundChangeScript script = new StandardScript("testExecute", executeRule, fileHandler);
-		script.process();
-
-		String received = fileSystem.get("output.lex");
-
-		assertEquals(outpt.replaceAll("\\r\\n|\\n|\\r","\n"), received);
-	}
-
-	@Test
-	public void testRuleLarge01() throws Exception {
-		String[] output = getStringFromClassPath("testRuleLargeOut01.lex").split("\n");
-
-		String script = "IMPORT 'testRuleLarge01.txt'";
-
-		SoundChangeScript sca = new StandardScript(script, CLASSPATH_HANDLER);
-		sca.process();
-
-		Lexicon received = sca.getLexicon("LEXICON");
-		Lexicon expected = FACTORY_INTELLIGENT.getLexiconFromSingleColumn(output);
 		assertEquals(expected, received);
 	}
 

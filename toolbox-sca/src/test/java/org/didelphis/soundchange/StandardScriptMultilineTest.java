@@ -17,8 +17,13 @@
 
 package org.didelphis.soundchange;
 
+import org.didelphis.enums.FormatterMode;
+import org.didelphis.io.ClassPathFileHandler;
+import org.didelphis.io.FileHandler;
 import org.didelphis.io.MockFileHandler;
 import org.didelphis.io.NullFileHandler;
+import org.didelphis.phonetic.Lexicon;
+import org.didelphis.phonetic.SequenceFactory;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +48,52 @@ import static org.junit.Assert.assertEquals;
 public class StandardScriptMultilineTest {
 
 	private static final transient Logger LOGGER = LoggerFactory.getLogger(StandardScriptMultilineTest.class);
-	
+
+	private static final ClassPathFileHandler CLASSPATH_HANDLER   = ClassPathFileHandler.getDefaultInstance();
+	private static final SequenceFactory FACTORY_INTELLIGENT = new SequenceFactory(FormatterMode.INTELLIGENT);
+
+
+	@Test
+	public void testExecute() throws Exception {
+		Map<String, String> fileSystem = new HashMap<String, String>();
+		FileHandler fileHandler = new MockFileHandler(fileSystem);
+
+		String rules = getStringFromClassPath("testRuleLarge01.txt");
+		String words = getStringFromClassPath("testRuleLarge01.lex");
+		String outpt = getStringFromClassPath("testRuleLargeOut01.lex");
+
+		// Append output clause
+		rules = rules + "\n" +
+				"MODE COMPOSITION\n" +
+				"CLOSE LEXICON AS \'output.lex\'";
+
+		fileSystem.put("testRuleLarge01.lex", words);
+		fileSystem.put("testRuleLarge01.txt", rules);
+
+		String executeRule = "EXECUTE 'testRuleLarge01.txt'";
+		SoundChangeScript script = new StandardScript("testExecute", executeRule, fileHandler);
+		script.process();
+
+		String received = fileSystem.get("output.lex");
+
+		assertEquals(outpt.replaceAll("\\r\\n|\\n|\\r","\n"), received);
+	}
+
+	@Test
+	public void testRuleLarge01() throws Exception {
+		String[] output = getStringFromClassPath("testRuleLargeOut01.lex").split("\n");
+
+		String script = "IMPORT 'testRuleLarge01.txt'";
+
+		SoundChangeScript sca = new StandardScript(script, CLASSPATH_HANDLER);
+		sca.process();
+
+		Lexicon received = sca.getLexicon("LEXICON");
+		Lexicon expected = FACTORY_INTELLIGENT.getLexiconFromSingleColumn(output);
+		assertEquals(expected, received);
+	}
+
+
 	@Test
 	public void testRules01() {
 		String lexicon = "" +
