@@ -164,65 +164,68 @@ public class StandardScript implements SoundChangeScript {
 		Type commandType = null;
 		String currentLine;
 		for (String string : strings) {
-			currentLine = COMMENT_PATTERN.matcher(string).replaceAll("").trim();
-			// TODO: this section contains a lot of repeated code
-			if (currentLine.isEmpty()) {
-				// end previous command
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder();
-				commandType = null;
-			} else if (currentLine.startsWith(LOAD)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.LOAD;
-			} else if (currentLine.startsWith(EXECUTE)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.EXECUTE;
-			} else if (currentLine.startsWith(IMPORT)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.IMPORT;
-			} else if (currentLine.startsWith(OPEN)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.OPEN;
-			} else if (currentLine.startsWith(WRITE)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.WRITE;
-			} else if (currentLine.startsWith(CLOSE)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.CLOSE;
-			} else if (currentLine.startsWith(MODE)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.MODE;
-			} else if (currentLine.startsWith(RESERVE)) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.RESERVE;
-			} else if (currentLine.startsWith(BREAK)) {
-				buildCommand(commandType, buffer.toString());
-				break; // terminate processing
-			} else if (VAR_PATTERN.matcher(currentLine).find()) {
-				buildCommand(commandType, buffer.toString());
-				buffer = new StringBuilder(currentLine);
-				commandType = Type.VARIABLE;
-			} else if (RULE_PATTERN.matcher(currentLine).find()) {
-				if (commandType == null) {
-					commandType = Type.RULE;
-				} else {
+			try {
+				currentLine = COMMENT_PATTERN.matcher(string).replaceAll("").trim();
+				// TODO: this section contains a lot of repeated code
+				if (currentLine.isEmpty()) {
+					// end previous command
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder();
+					commandType = null;
+				} else if (currentLine.startsWith(LOAD)) {
 					buildCommand(commandType, buffer.toString());
 					buffer = new StringBuilder(currentLine);
+					commandType = Type.LOAD;
+				} else if (currentLine.startsWith(EXECUTE)) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.EXECUTE;
+				} else if (currentLine.startsWith(IMPORT)) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.IMPORT;
+				} else if (currentLine.startsWith(OPEN)) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.OPEN;
+				} else if (currentLine.startsWith(WRITE)) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.WRITE;
+				} else if (currentLine.startsWith(CLOSE)) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.CLOSE;
+				} else if (currentLine.startsWith(MODE)) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.MODE;
+				} else if (currentLine.startsWith(RESERVE)) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.RESERVE;
+				} else if (currentLine.startsWith(BREAK)) {
+					buildCommand(commandType, buffer.toString());
+					break; // terminate processing
+				} else if (VAR_PATTERN.matcher(currentLine).find()) {
+					buildCommand(commandType, buffer.toString());
+					buffer = new StringBuilder(currentLine);
+					commandType = Type.VARIABLE;
+				} else if (RULE_PATTERN.matcher(currentLine).find()) {
+					if (commandType != null) {
+						buildCommand(commandType, buffer.toString());
+					}
+					buffer = new StringBuilder(currentLine);
 					commandType = Type.RULE;
+				} else {
+					buffer.append(currentLine);
 				}
-			} else {
-				buffer.append(currentLine);
+				// Always add a standard newline
+				buffer.append('\n');
+			} catch (@SuppressWarnings("OverlyBroadCatchBlock") Exception e) {
+				fail = true;
+				LOGGER.error("Compile error", e);
 			}
-			// Always add a standard newline
-			buffer.append('\n');
 		}
 
 		// Compile remaining contents of buffer

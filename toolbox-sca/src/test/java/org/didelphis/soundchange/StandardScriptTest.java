@@ -51,9 +51,9 @@ public class StandardScriptTest {
 
 	private static final transient Logger LOGGER = LoggerFactory.getLogger(StandardScriptTest.class);
 
-	public static final ClassPathFileHandler CLASSPATH_HANDLER   = ClassPathFileHandler.getDefaultInstance();
-	public static final SequenceFactory      FACTORY_NONE        = new SequenceFactory(FormatterMode.NONE);
-	public static final SequenceFactory      FACTORY_INTELLIGENT = new SequenceFactory(FormatterMode.INTELLIGENT);
+	private static final ClassPathFileHandler CLASSPATH_HANDLER   = ClassPathFileHandler.getDefaultInstance();
+	private static final SequenceFactory      FACTORY_NONE        = new SequenceFactory(FormatterMode.NONE);
+	private static final SequenceFactory      FACTORY_INTELLIGENT = new SequenceFactory(FormatterMode.INTELLIGENT);
 
 
 	@Test(expected = ParseException.class)
@@ -283,7 +283,6 @@ public class StandardScriptTest {
 
 		String executeRule = "EXECUTE 'testRuleLarge01.txt'";
 		SoundChangeScript script = new StandardScript("testExecute", executeRule, fileHandler);
-
 		script.process();
 
 		String received = fileSystem.get("output.lex");
